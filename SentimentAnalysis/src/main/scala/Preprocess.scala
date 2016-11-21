@@ -1,8 +1,9 @@
 import org.apache.spark.mllib.classification.{NaiveBayes, NaiveBayesModel}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+//import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+import org.apache.spark.mllib.feature.{HashingTF, IDF}
 import org.apache.spark.mllib.regression.LabeledPoint
-import org.apache.spark.sql.SparkSession
+//import org.apache.spark.sql.SparkSession
 /**
   * Created by Jackey on 16/11/20.
   */
@@ -21,8 +22,12 @@ object Preprocess {
     val posOriginDistinctData = posOriginData.distinct()
     val negOriginDistinctData = negOriginData.distinct()
 
-    val posAllRateDocument = posOriginDistinctData.map(line => line.split("\t"))
-    val negRateDocument = negOriginDistinctData.map(line => line.split("\t"))
+//    val posAllRateDocument = posOriginDistinctData.map(line => line.split("\t"))
+//    val negRateDocument = negOriginDistinctData.map(line => line.split("\t"))
+
+    val posAllRateDocument = posOriginDistinctData
+    val negRateDocument = negOriginDistinctData
+
     negRateDocument.repartition(1)
     val posRateDocument = sc.parallelize(posAllRateDocument.take(negRateDocument.count().toInt)).repartition(1)
 
@@ -35,16 +40,15 @@ object Preprocess {
     val document = allPair.keys
 
 
+    val words = document.map(line => line.split(" ").toSeq)
 
-//    val words = document.map(w => w.map(line => line.split(" ").toSeq).toSeq)
-
-    val spark = new SparkSession()
-    val sentenceData = spark.createDataFrame(allPair).toDF("label","sentence")
-    val tokenizer = new Tokenizer().setInputCol("sentence").setOutputCol("words")
-    val words2 = tokenizer.transform(sentenceData)
+//    val spark = new SparkSession()
+//    val sentenceData = spark.createDataFrame(allPair).toDF("label","sentence")
+//    val tokenizer = new Tokenizer().setInputCol("sentence").setOutputCol("words")
+//    val words2 = tokenizer.transform(sentenceData)
 
     val hashingTF = new HashingTF()
-    val tf = hashingTF.transform(words2)
+    val tf = hashingTF.transform(words)
     tf.cache()
 
     val idfObj = new IDF()
@@ -53,8 +57,8 @@ object Preprocess {
 
 //    val rdd_idf = tfidf.map(row => (row(1), row(2)))
     val zipped = rate.zip(tfidf)
-    val zipped2 = tfidf.map(row => (rate, tfidf.rdd))
-    val data = zipped2.map(x => LabeledPoint(x._1, x._2))
+//    val zipped2 = tfidf.map(row => (rate, tfidf.rdd))
+    val data = zipped.map(x => LabeledPoint(x._1, x._2))
 
     val Array(training,test) = data.randomSplit(Array(0.6, 0.4), 0)
 

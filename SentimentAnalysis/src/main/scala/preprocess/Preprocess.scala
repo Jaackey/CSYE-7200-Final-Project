@@ -1,4 +1,7 @@
-import org.apache.spark.mllib.classification.{NaiveBayes, NaiveBayesModel}
+package preprocess
+
+import org.apache.spark.mllib.classification.NaiveBayes
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 //import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
 import org.apache.spark.mllib.feature.{HashingTF, IDF}
@@ -8,6 +11,26 @@ import org.apache.spark.mllib.regression.LabeledPoint
   * Created by Jackey on 16/11/20.
   */
 object Preprocess {
+
+  def path2rdd(path: String, sc: SparkContext):RDD[String] = {
+    sc.textFile(path)
+  }
+
+  def makePair(data: RDD[String])(f: RDD[String]=>RDD[(String, Int)]):RDD[(String, Int)]={
+    f(data)
+  }
+
+  def vectorize(dataSeq: RDD[Seq[String]]): RDD[org.apache.spark.mllib.linalg.Vector] ={
+    val hashingTF = new HashingTF()
+    val tf = hashingTF.transform(dataSeq)
+    tf.cache()
+
+    val idfObj = new IDF()
+    val idfModel = idfObj.fit(tf)
+    idfModel.transform(tf)
+  }
+
+
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
       .setMaster("local[*]")
@@ -18,6 +41,14 @@ object Preprocess {
 
     val posOriginData = sc.textFile("/Users/Jackey/Documents/datatest/movie/aclImdb/train/pos")
     val negOriginData = sc.textFile("/Users/Jackey/Documents/datatest/movie/aclImdb/train/neg")
+
+    val posPath = "/Users/Jackey/Documents/datatest/movie/aclImdb/train/pos"
+    val negPath = "/Users/Jackey/Documents/datatest/movie/aclImdb/train/pos"
+    val posOriData = path2rdd(posPath,sc)
+    val negOriData = path2rdd(negPath,sc)
+
+//    val posOriginData = sc.textFile("/Users/Jackey/Documents/datatest/movie/trainSample/pos")
+//    val negOriginData = sc.textFile("/Users/Jackey/Documents/datatest/movie/trainSample/neg")
 
     val posOriginDistinctData = posOriginData.distinct()
     val negOriginDistinctData = negOriginData.distinct()
@@ -55,6 +86,7 @@ object Preprocess {
     val idfModel = idfObj.fit(tf)
     val tfidf = idfModel.transform(tf)
 
+
 //    val rdd_idf = tfidf.map(row => (row(1), row(2)))
     val zipped = rate.zip(tfidf)
 //    val zipped2 = tfidf.map(row => (rate, tfidf.rdd))
@@ -69,6 +101,14 @@ object Preprocess {
     val accuracy = 1.0 * predictionAndLabel.filter(x => x._1 == x._2).count() / test.count()
 
     println(accuracy)
+
+    val myword = "Nine minutes of psychedelic, pulsating, often symmetric abstract images, are enough to drive anyone crazy. I did spot a full-frame eye at the start, and later some birds silhouetted against other colors. It was just not my cup of tea. It's about 8½ minutes too long.".split(" ")
+
+    val mytf = hashingTF.transform(myword)
+
+    val mytfidf = idfModel.transform(mytf)
+
+    println("NaiveBayes Model Prodict : ", NBmodel.predict(mytfidf))
 
 
   }
